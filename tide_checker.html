@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tide Checker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid #e2e8f0; /* Subtle border */
+        }
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #4a5568; /* Gray 700 */
+        }
+        .input-group input[type="text"] { /* Changed to text input */
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0; /* Gray 300 */
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            color: #2d3748; /* Gray 900 */
+        }
+        .button {
+            background-color: #3b82f6; /* Blue 500 */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 9999px; /* Pill-shaped button */
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+        .button:hover {
+            background-color: #2563eb; /* Blue 600 */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        .button:active {
+            background-color: #1d4ed8; /* Blue 700 */
+            transform: translateY(0);
+        }
+        .message-box {
+            background-color: #eff6ff; /* Light blue background */
+            color: #1e40af; /* Dark blue text */
+            border: 1px solid #bfdbfe; /* Blue border */
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.95rem;
+            text-align: left;
+            word-wrap: break-word; /* Ensure text wraps */
+        }
+        .error-box {
+            background-color: #fee2e2; /* Light red background */
+            color: #991b1b; /* Dark red text */
+            border: 1px solid #fca5a5; /* Red border */
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3b82f6; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-bold text-gray-800 mb-6">🌊 Tide Checker 🌊</h1>
+
+        <div class="input-group">
+            <label for="placeNameInput">Place Name:</label>
+            <input type="text" id="placeNameInput" placeholder="e.g., Dublin, Ireland or Sydney Opera House">
+        </div>
+
+        <button id="getTidesBtn" class="button">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            Get Tides
+        </button>
+
+        <div id="loadingIndicator" class="loading-spinner hidden"></div>
+
+        <div id="responseContainer" class="mt-6">
+            <!-- Location and Tide information will be displayed here -->
+            <p id="locationDisplay" class="text-lg text-gray-700 mb-4"></p>
+            <div id="tideDisplay" class="message-box hidden"></div>
+            <div id="errorDisplay" class="message-box error-box hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        const getTidesBtn = document.getElementById('getTidesBtn');
+        const placeNameInput = document.getElementById('placeNameInput');
+        const locationDisplay = document.getElementById('locationDisplay');
+        const tideDisplay = document.getElementById('tideDisplay');
+        const errorDisplay = document.getElementById('errorDisplay');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // IMPORTANT: Replace 'YOUR_STORMGLASS_API_KEY' with your actual API key from stormglass.io
+        // Keep this key secure in a real production app (e.g., use a backend proxy).
+        // For a client-side demo, it's placed here for simplicity.
+        const STORMGLASS_API_KEY = 'abf0e638-50f2-11f0-ac6f-0242ac130006-abf0e692-50f2-11f0-ac6f-0242ac130006';
+
+        // Nominatim API endpoint for geocoding
+        const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search?format=json&limit=1';
+
+        // Function to display messages in a styled box
+        function showMessage(element, message, isError = false) {
+            element.innerHTML = message;
+            element.classList.remove('hidden');
+            if (isError) {
+                element.classList.add('error-box');
+                element.classList.remove('message-box');
+            } else {
+                element.classList.add('message-box');
+                element.classList.remove('error-box');
+            }
+        }
+
+        // Function to hide messages
+        function hideMessage(element) {
+            element.classList.add('hidden');
+            element.innerHTML = '';
+        }
+
+        // Function to geocode a place name to coordinates
+        async function geocodePlace(placeName) {
+            const url = `${NOMINATIM_API_URL}&q=${encodeURIComponent(placeName)}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Geocoding API Error: ${response.status} - ${response.statusText}`);
+                }
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lon: parseFloat(data[0].lon),
+                        displayName: data[0].display_name
+                    };
+                } else {
+                    return null; // No results found
+                }
+            } catch (error) {
+                console.error("Error geocoding place:", error);
+                throw new Error(`Could not find coordinates for "${placeName}": ${error.message}`);
+            }
+        }
+
+        // Fetches tide data from the Storm Glass API
+        async function fetchTideData(latitude, longitude) {
+            if (STORMGLASS_API_KEY === 'YOUR_STORMGLASS_API_KEY' || !STORMGLASS_API_KEY) {
+                throw new Error("Storm Glass API Key is not set. Please get a free key from stormglass.io and update the code.");
+            }
+
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setUTCDate(today.getUTCDate() + 1);
+
+            const startTime = today.toISOString();
+            const endTime = tomorrow.toISOString();
+
+            const apiUrl = `https://api.stormglass.io/v2/tide/extremes/point?lat=${latitude}&lng=${longitude}&start=${startTime}&end=${endTime}&datum=MLLW`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'Authorization': STORMGLASS_API_KEY
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API Error: ${response.status} - ${errorData.errors ? JSON.stringify(errorData.errors) : response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log("Storm Glass API Response:", data);
+
+                if (!data || !data.data || data.data.length === 0) {
+                    throw new Error("No tide data found for this location or date.");
+                }
+
+                // Sort tides by height to infer High/Low
+                const sortedTides = [...data.data].sort((a, b) => a.height - b.height);
+
+                const tidePredictions = sortedTides.map((tide, index) => {
+                    const date = new Date(tide.time);
+                    const localTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                    let tideType;
+                    // Assuming there are generally two low tides and two high tides in a 24hr period
+                    // The lowest two heights are Low Tides, the highest two are High Tides
+                    if (index < sortedTides.length / 2) {
+                        tideType = 'Low Tide';
+                    } else {
+                        tideType = 'High Tide';
+                    }
+                    
+                    // Fallback to API's 'state' if it's explicitly provided and valid, overriding inference
+                    if (tide.state === 'HIGH_TIDE') {
+                        tideType = 'High Tide';
+                    } else if (tide.state === 'LOW_TIDE') {
+                        tideType = 'Low Tide';
+                    }
+
+
+                    const height = tide.height ? `${tide.height.toFixed(2)}m` : 'N/A';
+
+                    return `<li class="text-gray-800"><span class="font-semibold">${tideType}:</span> ${localTime} (${height})</li>`;
+                }).join('');
+
+                return {
+                    today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                    tidePredictions: tidePredictions
+                };
+
+            } catch (error) {
+                console.error("Error during API fetch:", error);
+                throw new Error(`Could not fetch tide data: ${error.message}`);
+            }
+        }
+
+        // Helper function to display tides and handle loading/error states
+        async function displayTides(latitude, longitude, sourceMessage) {
+            loadingIndicator.classList.remove('hidden');
+            getTidesBtn.disabled = true;
+
+            try {
+                const tideData = await fetchTideData(latitude, longitude);
+                showMessage(locationDisplay, sourceMessage + `<br>Latitude ${latitude.toFixed(4)}, Longitude ${longitude.toFixed(4)}`);
+                showMessage(tideDisplay, `
+                    <p class="font-bold text-gray-900 mb-2">Tide Predictions for ${tideData.today}:</p>
+                    <ul class="list-none p-0 m-0">
+                        ${tideData.tidePredictions}
+                    </ul>
+                    <p class="text-sm mt-3 text-gray-600">
+                        (Data provided by Storm Glass API)
+                    </p>
+                `);
+            } catch (error) {
+                console.error("Error displaying tide data:", error);
+                showMessage(errorDisplay, `Failed to retrieve tide data: ${error.message}`, true);
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                getTidesBtn.disabled = false;
+            }
+        }
+
+        // Main function to get location and display tides
+        async function getTides() {
+            hideMessage(locationDisplay);
+            hideMessage(tideDisplay);
+            hideMessage(errorDisplay);
+
+            const placeName = placeNameInput.value.trim();
+
+            // Default coordinates for fallback (Dublin, Ireland)
+            const defaultLat = 53.3498;
+            const defaultLon = -6.2603;
+
+            if (placeName) {
+                try {
+                    const geoResult = await geocodePlace(placeName);
+                    if (geoResult) {
+                        await displayTides(geoResult.lat, geoResult.lon, `Tides for: ${geoResult.displayName}`);
+                    } else {
+                        showMessage(errorDisplay, `Could not find coordinates for "${placeName}". <br>Attempting to use your current location or default tides.`, true);
+                        attemptGeolocationOrFallback(defaultLat, defaultLon);
+                    }
+                } catch (error) {
+                    showMessage(errorDisplay, `Error looking up place: ${error.message}. <br>Attempting to use your current location or default tides.`, true);
+                    attemptGeolocationOrFallback(defaultLat, defaultLon);
+                }
+            } else {
+                attemptGeolocationOrFallback(defaultLat, defaultLon);
+            }
+        }
+
+        // Encapsulates geolocation logic and final fallback
+        async function attemptGeolocationOrFallback(fallbackLat, fallbackLon) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        await displayTides(lat, lon, 'Tides for your current location:');
+                    },
+                    (error) => {
+                        let errorMessage = 'Unable to retrieve your location.';
+                        if (error.code === error.PERMISSION_DENIED) {
+                            errorMessage = 'Location permission denied. This environment might restrict geolocation. <br>Displaying default tides.';
+                            console.warn("Geolocation permission denied by policy or user.");
+                        } else {
+                            switch (error.code) {
+                                case error.POSITION_UNAVAILABLE:
+                                    errorMessage = 'Location information is unavailable.';
+                                    break;
+                                case error.TIMEOUT:
+                                    errorMessage = 'The request to get user location timed out.';
+                                    break;
+                                case error.UNKNOWN_ERROR:
+                                    errorMessage = 'An unknown error occurred while getting location.';
+                                    break;
+                            }
+                            errorMessage += '<br>Displaying default tides.';
+                            console.error("Geolocation error:", {
+                                code: error.code,
+                                message: error.message,
+                                originalError: error
+                            });
+                        }
+                        showMessage(errorDisplay, errorMessage, true);
+                        displayTides(fallbackLat, fallbackLon, 'Tides for default location (Dublin):');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                showMessage(errorDisplay, "Geolocation is not supported by your browser. Please use a modern browser to access this feature. <br>Displaying default tides.", true);
+                displayTides(fallbackLat, fallbackLon, 'Tides for default location (Dublin):');
+            }
+        }
+
+        getTidesBtn.addEventListener('click', getTides);
+    </script>
+</body>
+</html>
