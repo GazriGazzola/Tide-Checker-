@@ -1,7 +1,7 @@
-🌊 Tide Checker App
+ Tide Checker App
 A simple web application to check tide predictions for a given location, using place names or device geolocation, powered by the Storm Glass API for tide data and Nominatim (OpenStreetMap) for geocoding.
 
-✨ Features
+ Features
 Place Name Search: Easily find tide predictions by entering a city, town, or specific address.
 
 Geolocation Support: Automatically detect the user's current location to fetch tide data (requires browser permission and HTTPS).
@@ -16,7 +16,7 @@ Error Handling: Informs the user about common issues like location permission de
 
 Free API Integration: Utilizes free tiers of Storm Glass API for tide data and Nominatim API for geocoding.
 
-🚀 How to Use
+ How to Use
 Prerequisites
 To run this application, you will need:
 
@@ -82,7 +82,7 @@ Create a new project and select your local folder containing tide_checker.html. 
 
 These services handle server setup and provide HTTPS automatically.
 
-⚠️ Important Notes
+ Important Notes
 API Key Security: For a production application with sensitive data, it's generally recommended to handle API keys on a backend server rather than directly in client-side code. For this simple front-end app and its free tier usage, directly embedding the key is acceptable for demonstration purposes.
 
 Geolocation Permissions: Browser geolocation requires user permission and a secure context (HTTPS). If the app is not served over HTTPS, geolocation will likely be blocked.
